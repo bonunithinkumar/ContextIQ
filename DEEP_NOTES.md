@@ -664,6 +664,27 @@ API keys and sensitive information are stored in `.env` (not in code). This foll
 
 ---
 
+## 🔎 FEATURE UPDATE: SOURCE CITATIONS & PROOF
+
+To ensure factuality and verification, a **Source Citation** engine has been added to the codebase. When the AI model produces an answer, the system retrieves and displays the exact source citations of the text fragments that were fed as context.
+
+### How Citations are Extracted and Formatted:
+* **PDF Ingestion**: Preserves the `page` metadata (0-indexed) returned by the LangChain loaders, presenting it as 1-indexed to the user.
+  * *Citation layout*: `Doc: <filename>, Page: <page_no>`
+* **Text (.txt) Ingestion**: Reads the original `.txt` file at runtime and searches for the extracted text chunk, computing its exact start line number dynamically.
+  * *Citation layout*: `Doc: <filename>, Line: <line_no>`
+* **Tabular (.csv) Ingestion**: Leverages the loader's native `row` index mapping.
+  * *Citation layout*: `Doc: <filename>, Row: <row_no>`
+* **Hierarchical (.json) Ingestion**: Tracks the sequence index of the JSON payload.
+  * *Citation layout*: `Doc: <filename>, Sequence: <index_no>`
+
+### Workflow Changes:
+1. **`src/vectorstore.py`**: The metadata array now preserves the complete loader metadata block (`**chunk.metadata`) when saving FAISS state rather than stripping it.
+2. **`src/search.py`**: The `search_and_summarize()` function returns a structured `dict` (containing both the LLM `"summary"` text and a list of `"citations"` strings) rather than a simple string.
+3. **`app.py`**: Iterates and prints the retrieved source list at the base of every answer.
+
+---
+
 ## 🚀 POTENTIAL IMPROVEMENTS & EXTENSIONS
 
 Since this is a "practice" project, here are natural next steps:

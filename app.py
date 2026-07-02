@@ -34,8 +34,14 @@ if __name__ == "__main__":
             break
 
         print("\n⏳ Searching your documents...\n")
-        summary = rag_search.search_and_summarize(query, top_k=3)
+        result = rag_search.search_and_summarize(query, top_k=3)
         print("─" * 55)
         print("✅ Answer:\n")
-        print(summary)
+        print(result["summary"])
+        print("\n📚 Sources / Citations:")
+        if result["citations"]:
+            for idx, citation in enumerate(result["citations"], 1):
+                print(f"  [{idx}] {citation}")
+        else:
+            print("  No citations available (please rebuild your FAISS index to capture metadata).")
         print("─" * 55)

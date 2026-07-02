@@ -230,7 +230,7 @@ The table below catalogs every custom class and function in your project, showin
 | | `query` | `RAGSearch` | `query_text: str`, `top_k: int` | `List[dict]` (Results with texts) | Embeds a raw user query string, then calls `search()` to fetch the matching items. |
 | | `search` | `query` | `query_embedding: np.ndarray`, `top_k: int` | `List[dict]` (Index, distance, texts) | Queries FAISS index arrays and fetches matched text entries from the metadata list. |
 | **`src/search.py`** | `RAGSearch` | `app.py` | `persist_dir: str`, `embedding_model: str`, `llm_model: str` | `RAGSearch` instance | Configures the vector store and instantiates the Groq cloud model connection. |
-| | `search_and_summarize`| `app.py` | `query: str`, `top_k: int` | `str` (Final answer response text) | The primary RAG method: queries the store, creates LLM prompts, and gets response. |
+| | `search_and_summarize`| `app.py` | `query: str`, `top_k: int` | `dict` (Summary and source citations) | The primary RAG method: queries the store, computes citations, creates LLM prompts, and gets response. |
 
 ---
 
@@ -251,8 +251,8 @@ def build_from_documents(self, documents: List[Any]):
     # Bridge to vector generator function
     embeddings = emb_pipe.embed_chunks(chunks)
     
-    # Convert and format data to fit FAISS requirements
-    metadatas = [{"text": chunk.page_content} for chunk in chunks]
+    # Convert and format data to fit FAISS requirements, preserving original metadata
+    metadatas = [{"text": chunk.page_content, **(chunk.metadata or {})} for chunk in chunks]
     self.add_embeddings(np.array(embeddings).astype('float32'), metadatas)
     self.save()
 ```
@@ -271,18 +271,46 @@ def query(self, query_text: str, top_k: int = 5):
 ### 3. The RAG Prompt Injection Bridge (`src/search.py`)
 Here, the text retrieved from semantic search is injected into the LLM prompt to restrict hallucinations:
 ```python
-def search_and_summarize(self, query: str, top_k: int = 5) -> str:
-    # Retreives the top matching metadata dictionaries from vectorstore
+def search_and_summarize(self, query: str, top_k: int = 5) -> dict:
+    # Retrieves the top matching metadata dictionaries from vectorstore
     results = self.vectorstore.query(query, top_k=top_k)
     
-    # Extract plain-text context blocks
-    texts = [r["metadata"].get("text", "") for r in results if r["metadata"]]
+    # Extract plain-text context blocks and format citations (source, page, line, row)
+    texts = []
+    citations = []
+    seen_citations = set()
+    for r in results:
+        meta = r.get("metadata")
+        if not meta:
+            continue
+        texts.append(meta.get("text", ""))
+        source = meta.get("source", "")
+        doc_name = os.path.basename(source) if source else "Unknown Document"
+        citation_parts = [f"Doc: {doc_name}"]
+        if "page" in meta:
+            citation_parts.append(f"Page: {meta['page'] + 1}")
+        if source and source.endswith('.txt'):
+            line_no = find_txt_line_number(source, meta.get("text", ""))
+            if line_no:
+                citation_parts.append(f"Line: {line_no}")
+        elif "row" in meta:
+            citation_parts.append(f"Row: {meta['row']}")
+        elif "seq_num" in meta:
+            citation_parts.append(f"Sequence: {meta['seq_num']}")
+            
+        citation_str = ", ".join(citation_parts)
+        if citation_str not in seen_citations:
+            seen_citations.add(citation_str)
+            citations.append(citation_str)
+            
     context = "\n\n".join(texts)
-    
     # Wrap context and user query inside a custom instructions layout
     prompt = f"""Summarize the following context for the query: '{query}'\n\nContext:\n{context}\n\n\n\nSummary:"""
     
     # Send compiled instructions to ChatGroq API client wrapper
     response = self.llm.invoke([prompt])
-    return response.content
+    return {
+        "summary": response.content,
+        "citations": citations
+    }
 ```

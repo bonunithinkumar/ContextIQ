@@ -12,6 +12,7 @@
 - [Technologies Used](#-technologies-used)
 - [Setup & Installation](#-setup--installation)
 - [Usage](#-usage)
+- [Source Citations (Reliability Proof)](#-source-citations-reliability-proof)
 - [Adding Your Own Documents](#-adding-your-own-documents)
 - [Configuration](#-configuration)
 - [Architecture Deep Dive](#-architecture-deep-dive)
@@ -204,6 +205,17 @@ Examples:
 - `"How do decision trees work?"`
 - `"What are Python data types?"`
 - `"Explain gradient descent"`
+
+---
+
+## 🔍 Source Citations (Reliability Proof)
+
+To verify the accuracy of the AI-generated answers, the system displays references/citations at the bottom of the output showing exactly where the source context was retrieved:
+
+* **PDF Files**: Displays the document name and `1-indexed` page number (e.g., `Doc: Machine_Learning_Basics.pdf, Page: 14`).
+* **Text Files**: Displays the file name and the computed start line number of the matching chunk (e.g., `Doc: machine_learning.txt, Line: 12`).
+* **CSV Files**: Displays the file name and row number (e.g., `Doc: dataset.csv, Row: 5`).
+* **JSON Files**: Displays the file name and sequence index (e.g., `Doc: data.json, Sequence: 2`).
 
 ---
 
